@@ -1,5 +1,3 @@
-
-
 // Dieser Sketch soll einmal erlauben, eine Fräse oder Drehmaschine via Arduino manuell über ein Bedienpult zu steuern.
 // Die spätere implementation von GRBL ist noch offen, wenn möglich aber geplant. In erster Näherung wird die Z-Achse 
 // einer Säulenfräse damit gesteuert. 
@@ -17,6 +15,8 @@
 #include <Wire.h>
 #include <avr/dtostrf.h>                      // Formatierungs Bibliothek (Standard)
 #include <DueTimer.h>                         // DueTimer von Ivan Seidel
+#include <LCD.h>
+#include <LiquidCrystal_I2C.h>
 
 #define DEBUG    1                            // 1: Debug ein, 0: Debug aus
 
@@ -26,6 +26,15 @@
 #define ZSTEP    9                            // Pin fuer Step-Impuls
 #define ZDIRP   11                            // Pin fuer Richtung
 #define SLED     8                            // LED für den Eilgang
+
+#define BACKLIGHT_PIN 3                       //LCD Pins...
+#define En_pin 2
+#define Rw_pin 1
+#define Rs_pin 0
+#define D4_pin 4
+#define D5_pin 5
+#define D6_pin 6
+#define D7_pin 7                              //... LCD Pins
 
 // Eingangs-Pins
 #define POTI     A1                           // Analogeingang fuer Poti
@@ -58,6 +67,7 @@ int mmMaxTravelZ  = 460;                      // Maximaler Verfahrweg der Z-Achs
 #define ACC_ZONE_Z  10                        // Beschleunigungsstrecke bis Max in mm       
 
 // ab hier nichts mehr ändern
+#define I2C_ADR_Display 0x27                  // Adresse Display
 
 char cBuffer[10], cLogValue[100], cDisplayValue[20]; // Variablen für  Ausgabe
 
@@ -71,6 +81,9 @@ volatile long lCounter = 0;                   // Counter für das Timer-Callback
 volatile bool hase;                           // HIGH = Hasengang, LOW = Schneckengang
 volatile int  z_pos_count;                    // Counter der Steps
 volatile float pos;                           // Positionszähler
+
+//Displayinstanz lcd erstellen
+LiquidCrystal_I2C lcd(I2C_ADR_Display, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin, BACKLIGHT_PIN, POSITIVE);
 
 
 
@@ -96,6 +109,8 @@ void setup( void ) {
   debugLog ( "Starte Programm\n" );
   noInterrupts();
   interrupts ();
+  Wire.begin();
+  lcdSetup(); 
 
   
   pinMode( READY, OUTPUT );                     // Bereitschaftsanzeige
@@ -103,28 +118,45 @@ void setup( void ) {
   pinMode( ZDIRP, OUTPUT );                     // Z Achsen Richtungs-Pin
   pinMode( POTI, INPUT );                       // Poti Pin als INPUT
   pinMode( SWITCH, INPUT );                     // Geschwindigkeits-Wahlschalter
-  pinMode( ENC_DATA, INPUT_PULLUP );            // Encoder Daten
-  pinMode( ENC_CLOCK, INPUT_PULLUP );           // Encoder Clock
+  pinMode( ENC_DATA, INPUT );            // Encoder Daten
+  pinMode( ENC_CLOCK, INPUT );           // Encoder Clock
   pinMode( ENC_SW, INPUT );                     // Encoder Taster
   pinMode( SLED, OUTPUT );                      // Eilgang LED
+  
   //Vorbelegungen
   digitalWrite( SWITCH, HIGH );                 // Pullup
-  digitalWrite( ENC_CLOCK, HIGH );              // Pullup
-  digitalWrite( ENC_DATA, HIGH );               // Pullup
   digitalWrite( ENC_SW, HIGH );                 // Pullup
   digitalWrite( READY, LOW );                   // Erstmal nicht READY
   
   Timer0.attachInterrupt( zTimer );             // Timer0 Interrupt für die Z-Achse
   
+  Timer1.attachInterrupt( wTimer );             // Timer1 für Displayaktualisierung alle 100 ms
+  Timer1.setFrequency( 4 );                     // Timer1 4Hz
+  Timer1.start();                               // Refresh starten
+  
+  attachInterrupt(digitalPinToInterrupt(ENC_CLOCK),isr_enc,RISING);
+  attachInterrupt(digitalPinToInterrupt(ENC_DATA),isr_enc,FALLING);
+  
   
   digitalWrite( READY, HIGH );                  // Bereit
 
-  hase = LOW;
+  hase = HIGH;
   
   debugLog( "Bereit!\n" );
+  delay( 500 );                                 // Zeit um eventuelle Fehler zu lesen
+  lcdInit();
 }
 
-/*Z-Achsen Timer*/
+/* Encoder Interrupt-Routine */
+void isr_enc( void ){
+  //Nichts zu tun
+}
+
+/* write Timer um die Ausgabe am Display zu verlangsamen (Ghosting) */
+void wTimer( void ){
+  writeData();
+}
+/* Z-Achsen Timer Routine */
 void zTimer( void ){
   int step=!digitalRead( ZSTEP );
   digitalWrite( ZSTEP,step );
@@ -136,10 +168,48 @@ void zTimer( void ){
   }
 }
 
+void lcdSetup( void ){
+  
+  lcd.setBacklightPin( 3, POSITIVE );           //LCD init und ausgabe starten
+  lcd.setBacklight( 1 );
+  lcd.begin( 20, 4 );                           // oder lcd.begin(16,2); für meine 16/2 Displays
+  lcd.setCursor( 0, 0 );
+  lcd.clear();
+  lcd.print( "Initialisiere..." );
+}
+
+void lcdInit( void ) {
+
+  lcd.clear();                                  // Erstmal alles löschen
+  lcdWrite( 0, 0, "Geschw.:" );
+  lcdWrite( 2, 0, "Z Pos  :" );
+  lcdWrite( 2, 12, "        " );
+
+}
+
+void lcdWrite ( int iRow, int iCol, String sValue ) {
+  lcd.setCursor( iCol, iRow );
+  lcd.print( sValue );
+}
+
 /*Daten schreiben*/
 void writeData( void ) {
   
-  digitalWrite( ZDIRP, rightRotate );
+  lcdWrite( 0, 0, "Geschw.:" );                   // Zeile 1 des Displays schreiben
+  if ( hase ) {
+    lcdWrite(0, 8, "Schnell     ");
+  } else {
+    lcdWrite(0, 8, "Langsam");
+  }
+  if ( rightRotate ){
+      lcdWrite( 0, 19, "^" );                     // Richtung für Z-Achse
+  }else{
+      lcdWrite( 0, 19, "v" );                     // Richtung für Z-Achse
+  }
+      
+  
+  lcdWrite(2, 0, "Z Pos  :");                   // Zeile 3 des Displays schreiben
+  lcdWrite(2, 10, dtostrf(pos, 7, 3, cBuffer));
 
 //  debugLog( "Z-Pos: " );
 //  debugLog( dtostrf( pos, 8, 3, cBuffer ));
@@ -175,6 +245,9 @@ void loop( void ) {
 #else
   rightRotate = (iEncVal > 0) ? HIGH : LOW ;    // Richtungs-Pin fuer Stepper
 #endif
+
+  digitalWrite( ZDIRP, rightRotate );           // Richtung direkt an die Endstufe weitergeben
+
   // Daten berechnen und Timer steuern
   if ( iEncVal!=0 && iAbsEncVal < ESTMAX ){
     if ( iEncVal != iOldEncVal ){               // Jetzt hat sich was getan
@@ -191,7 +264,7 @@ void loop( void ) {
       debugLog( ltoa( t,cBuffer, 10 ) );
       debugLog( "\n" );
       Timer0.setFrequency(t);
-      Timer.start();
+      Timer0.start();
     }
   }else{
     if ( iAbsEncVal>0 ){                         // Wenn das Poti auf Anschlagswert ist nichts machen
@@ -204,9 +277,6 @@ void loop( void ) {
 
   // Position berechnen
   pos = mmPerStepZ * z_pos_count;
-
-  // Daten schreiben
-  writeData();
 
 }
 /*************************** Loop Ende ************************************/
