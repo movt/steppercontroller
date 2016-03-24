@@ -98,26 +98,26 @@ void setup( void ) {
   interrupts ();
 
   
-  pinMode(READY, OUTPUT);                     // Bereitschaftsanzeige
-  pinMode(ZSTEP, OUTPUT);                     // Z Achsen Step
-  pinMode(ZDIRP, OUTPUT);                     // Z Achsen Richtungs-Pin
-  pinMode(POTI, INPUT);                       // Poti Pin als INPUT
-  pinMode(SWITCH, INPUT);                     // Geschwindigkeits-Wahlschalter
-  pinMode(ENC_DATA, INPUT_PULLUP);                   // Encoder Daten
-  pinMode(ENC_CLOCK, INPUT_PULLUP);                  // Encoder Clock
-  pinMode(ENC_SW, INPUT);                     // Encoder Taster
-  pinMode(SLED, OUTPUT);                      // Eilgang LED
+  pinMode( READY, OUTPUT );                     // Bereitschaftsanzeige
+  pinMode( ZSTEP, OUTPUT );                     // Z Achsen Step
+  pinMode( ZDIRP, OUTPUT );                     // Z Achsen Richtungs-Pin
+  pinMode( POTI, INPUT );                       // Poti Pin als INPUT
+  pinMode( SWITCH, INPUT );                     // Geschwindigkeits-Wahlschalter
+  pinMode( ENC_DATA, INPUT_PULLUP );            // Encoder Daten
+  pinMode( ENC_CLOCK, INPUT_PULLUP );           // Encoder Clock
+  pinMode( ENC_SW, INPUT );                     // Encoder Taster
+  pinMode( SLED, OUTPUT );                      // Eilgang LED
   //Vorbelegungen
-  digitalWrite(SWITCH, HIGH);                 // Pullup
-  digitalWrite(ENC_CLOCK, HIGH);              // Pullup
-  digitalWrite(ENC_DATA, HIGH);               // Pullup
-  digitalWrite(ENC_SW, HIGH);                 // Pullup
-  digitalWrite(READY, LOW);                   // Erstmal nicht READY
+  digitalWrite( SWITCH, HIGH );                 // Pullup
+  digitalWrite( ENC_CLOCK, HIGH );              // Pullup
+  digitalWrite( ENC_DATA, HIGH );               // Pullup
+  digitalWrite( ENC_SW, HIGH );                 // Pullup
+  digitalWrite( READY, LOW );                   // Erstmal nicht READY
   
-  Timer0.attachInterrupt(zTimer);             // Timer0 Interrupt für die Z-Achse
+  Timer0.attachInterrupt( zTimer );             // Timer0 Interrupt für die Z-Achse
   
   
-  digitalWrite(READY, HIGH);                  // Bereit
+  digitalWrite( READY, HIGH );                  // Bereit
 
   hase = LOW;
   
@@ -126,15 +126,12 @@ void setup( void ) {
 
 /*Z-Achsen Timer*/
 void zTimer( void ){
-  int step=!digitalRead(ZSTEP);
-  digitalWrite(ZSTEP,step);
+  int step=!digitalRead( ZSTEP );
+  digitalWrite( ZSTEP,step );
   
-  if (rightRotate)
-  {
+  if ( rightRotate ){
     z_pos_count++;
-  }
-  else
-  {
+  }else{
     z_pos_count--;
   }
 }
