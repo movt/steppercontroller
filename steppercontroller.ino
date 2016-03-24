@@ -93,6 +93,14 @@ void ISRHase()
     Serial.print ( "Schnecke gesetzt\n" );
 }
 
+ISR_Hase()
+{
+  hase = !hase;
+  if (hase)
+    Serial.print ( "Hase gesetzt\n" );
+  else
+    Serial.print ( "Schnecke gesetzt\n" );
+}
 
 int getEncoderTurn(void)
 {
@@ -113,6 +121,7 @@ int getEncoderTurn(void)
   oldB = newB;
   return result;
 }
+
 void setup() {
   Serial.begin ( 115200 );
   debugLog ( "Starte Programm\n" );
@@ -137,7 +146,7 @@ void setup() {
 
   //Interrupts
   attachInterrupt(digitalPinToInterrupt(SWITCH),ISRHase,CHANGE);          // Interrupt für den Eilgang
-
+  attachInterrupt(digitalPinToInterrupt(ENC_SW),ISR_Hase,FALLING);          // Interrupt für den Eilgang
   
   digitalWrite(READY, HIGH);                  // Bereit
   debugLog( "Bereit!\n" );
